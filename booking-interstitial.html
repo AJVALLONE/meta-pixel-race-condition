@@ -1,0 +1,132 @@
+<!--
+  BOOKING INTERSTITIAL — Complete Drop-In Page
+  ─────────────────────────────────────────────────────────────────────────────
+  PURPOSE
+  Fires Meta Schedule event from a page you control, then redirects to a
+  third-party scheduler (Healthie, Calendly, Acuity, etc.) without placing
+  any tracking pixel on that clinical/booking surface.
+
+  SETUP
+  1. Replace the three config variables in the <script> block below
+  2. Update the heading/body copy to match your brand
+  3. Paste the full contents into your GHL funnel page → Custom Code block
+     (or publish as a standalone GHL funnel page)
+
+  TESTING
+  Events Manager → Test Events → open this page URL with ?fbclid=TEST
+  You should see: Schedule event, source Browser, eventID starting with sch_
+  within 30 seconds.
+-->
+
+<style>
+  .booking-interstitial {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    text-align: center;
+    padding: 60px 20px;
+    font-family: inherit;
+    color: inherit;
+  }
+
+  .booking-interstitial h2 {
+    font-size: 24px;
+    font-weight: 500;
+    margin: 0 0 10px;
+  }
+
+  .booking-interstitial p {
+    font-size: 18px;
+    line-height: 1.7;
+    margin: 0;
+  }
+
+  .booking-interstitial .fallback {
+    font-size: 16px;
+    margin: 28px 0 0;
+  }
+
+  .booking-interstitial a {
+    color: inherit;
+    text-decoration: underline;
+  }
+
+  /* Optional: spinner */
+  .booking-spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid rgba(0,0,0,0.12);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 24px auto 0;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+
+<div class="booking-interstitial">
+  <h2>Opening your calendar&hellip;</h2>
+  <p>One moment &mdash; we&rsquo;re taking you to the scheduler.</p>
+  <div class="booking-spinner" aria-hidden="true"></div>
+  <p class="fallback">
+    Not redirecting?
+    <a id="redirectFallback" href="#">Click here</a>.
+  </p>
+</div>
+
+<script>
+(function () {
+
+  // ─── CONFIG — replace these three values ─────────────────────────────────
+  var PIXEL_ID     = 'YOUR_PIXEL_ID';        // Your Meta pixel ID
+  var BOOKING_URL  = 'YOUR_SCHEDULER_URL';   // Full URL of your scheduler
+  // ─────────────────────────────────────────────────────────────────────────
+
+  var SETTLE_MS = 600;
+  var CAP_MS    = 4000;
+
+  // Unique event ID — pass this to CAPI if you use server-side events
+  var eventId = 'sch_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+
+  // Load Meta pixel inline — don't wait for GHL hydration (~5,200ms)
+  /* eslint-disable */
+  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+  n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+  document,'script','https://connect.facebook.net/en_US/fbevents.js');
+  /* eslint-enable */
+
+  try {
+    fbq('init', PIXEL_ID);
+    fbq('track', 'PageView');
+    fbq('track', 'Schedule', {}, { eventID: eventId });
+  } catch (e) {}
+
+  // Wire fallback link
+  var link = document.getElementById('redirectFallback');
+  if (link) link.setAttribute('href', BOOKING_URL);
+
+  // Hold redirect until pixel is confirmed loaded, then navigate
+  var start   = Date.now();
+  var readyAt = null;
+
+  (function poll() {
+    var now = Date.now();
+    if (!readyAt && window.fbq && window.fbq.callMethod) readyAt = now;
+    var settled  = readyAt && (now - readyAt >= SETTLE_MS);
+    var timedOut = (now - start) >= CAP_MS;
+    if (settled || timedOut) {
+      window.location.href = BOOKING_URL;
+    } else {
+      setTimeout(poll, 100);
+    }
+  })();
+
+})();
+</script>
